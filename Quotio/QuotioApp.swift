@@ -1,17 +1,94 @@
 //
 //  QuotioApp.swift
-//  Quotio
-//
-//  Created by Trong Nguyen on 24/12/25.
+//  Quotio - CLIProxyAPI GUI Wrapper
 //
 
 import SwiftUI
 
 @main
 struct QuotioApp: App {
+    @State private var viewModel = QuotaViewModel()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(viewModel)
+        }
+        .defaultSize(width: 1000, height: 700)
+        
+        #if os(macOS)
+        Settings {
+            AppSettingsView()
+                .environment(viewModel)
+        }
+        #endif
+    }
+}
+
+struct ContentView: View {
+    @Environment(QuotaViewModel.self) private var viewModel
+    
+    var body: some View {
+        @Bindable var vm = viewModel
+        
+        NavigationSplitView {
+            // Sidebar - automatically gets Liquid Glass
+            List(selection: $vm.currentPage) {
+                Section {
+                    Label("Dashboard", systemImage: "gauge.with.dots.needle.33percent")
+                        .tag(NavigationPage.dashboard)
+                    
+                    Label("Providers", systemImage: "person.2.badge.key")
+                        .tag(NavigationPage.providers)
+                    
+                    Label("Logs", systemImage: "doc.text")
+                        .tag(NavigationPage.logs)
+                    
+                    Label("Settings", systemImage: "gearshape")
+                        .tag(NavigationPage.settings)
+                }
+                
+                Section {
+                    // Status indicator
+                    HStack {
+                        Circle()
+                            .fill(viewModel.proxyManager.proxyStatus.running ? .green : .gray)
+                            .frame(width: 8, height: 8)
+                        
+                        Text(viewModel.proxyManager.proxyStatus.running ? "Running" : "Stopped")
+                            .font(.caption)
+                        
+                        Spacer()
+                        
+                        Text(":\(viewModel.proxyManager.port)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Quotio")
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        Task { await viewModel.toggleProxy() }
+                    } label: {
+                        Image(systemName: viewModel.proxyManager.proxyStatus.running ? "stop.fill" : "play.fill")
+                    }
+                    .help(viewModel.proxyManager.proxyStatus.running ? "Stop Proxy" : "Start Proxy")
+                }
+            }
+        } detail: {
+            // Detail view - standard content area
+            switch viewModel.currentPage {
+            case .dashboard:
+                DashboardScreen()
+            case .providers:
+                ProvidersScreen()
+            case .logs:
+                LogsScreen()
+            case .settings:
+                SettingsScreen()
+            }
         }
     }
 }
